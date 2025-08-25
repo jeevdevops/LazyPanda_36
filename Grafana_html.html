@@ -1,0 +1,73 @@
+<!-- ===== Grafana Text panel: 2 rows; first row 80/20; right box = T−/T+ countdown ===== -->
+<div id="gftimer" data-target="2025-12-31T00:00:00+10:00" style="width:100%;box-sizing:border-box;font-family:inherit;">
+  <!-- Row 1: 80% / 20% -->
+  <div style="display:flex;gap:12px;align-items:stretch;">
+    <!-- 80% (left) -->
+    <div style="flex:4 1 0;padding:12px;border-radius:12px;background:rgba(127,127,127,.08);">
+      <div style="font-weight:600;margin-bottom:4px">Main Content</div>
+      <div style="opacity:.85">Replace this with your KPIs, HTML, or markdown.</div>
+    </div>
+
+    <!-- 20% (right) — countdown -->
+    <div style="flex:1 1 0;padding:12px;border-radius:12px;background:rgba(127,127,127,.08);display:flex;align-items:center;justify-content:center;text-align:center;">
+      <div>
+        <div style="opacity:.7;font-size:.85rem;margin-bottom:4px">Countdown</div>
+        <div id="gftimer-value" style="font-size:1.6rem;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;">T−00:00:00:00</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: full width -->
+  <div style="margin-top:12px;padding:12px;border-radius:12px;background:rgba(127,127,127,.08);">
+    Secondary row content (notes, links, logs…)
+  </div>
+</div>
+
+<script>
+(function(){
+  var root = document.getElementById('gftimer'); if (!root) return;
+  var out  = document.getElementById('gftimer-value');
+
+  // Accept ISO datetime in data-target (e.g. 2025-12-31T00:00:00+10:00)
+  // Also supports Grafana variables like ${deadline} or ${deadline:2025-12-31T00:00:00+10:00}
+  var raw = (root.getAttribute('data-target') || '').trim();
+  var tStr = raw;
+  if (raw.startsWith('${') && raw.endsWith('}')) {
+    var colon = raw.indexOf(':');
+    tStr = colon > 2 ? raw.slice(colon + 1, -1) : ''; // if ${var:value} use value; else leave blank for fallback
+  }
+
+  var target = new Date(tStr);
+  if (isNaN(target.getTime())) {
+    // Fallback: 24h from now if no valid target provided
+    target = new Date(Date.now() + 24*60*60*1000);
+  }
+
+  function pad(n){ n = Math.floor(Math.abs(n)); return (n < 10 ? '0' : '') + n; }
+
+  function tick(){
+    var now  = new Date();
+    var diff = target.getTime() - now.getTime();
+    var sign = diff >= 0 ? 'T\u2212' : 'T+';
+    var ms   = Math.abs(diff);
+
+    var days = Math.floor(ms / 86400000); ms -= days * 86400000;
+    var hrs  = Math.floor(ms / 3600000);  ms -= hrs  * 3600000;
+    var mins = Math.floor(ms / 60000);    ms -= mins * 60000;
+    var secs = Math.floor(ms / 1000);
+
+    out.textContent = sign + pad(days) + ':' + pad(hrs) + ':' + pad(mins) + ':' + pad(secs);
+  }
+
+  tick();
+  var intervalId = setInterval(tick, 1000);
+
+  // Defensive cleanup in case Grafana hot-reloads the panel
+  var observer = new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      if ([].slice.call(m.removedNodes).indexOf(root) !== -1) { clearInterval(intervalId); observer.disconnect(); }
+    });
+  });
+  if (root.parentNode) observer.observe(root.parentNode, { childList: true });
+})();
+</script>
